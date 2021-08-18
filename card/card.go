@@ -22,3 +22,8 @@ func (c Card) IsAce() bool { return c.Rank() == 1 }
 
 // IsSpade reports whether a card is a spade.
 func (c Card) IsSpade() bool { return c%4 == 3 }
+
+// String returns a string representation of a card.
+func (c Card) String() string {
+	return `♣♦♥♠`[c%4*3:c%4*3+3] + `A23456789TJQK`[c.Rank()-1:c.Rank()]
+}

@@ -14,8 +14,11 @@ const (
 	BigCassino Card = 37
 )
 
+// Rank returns a card's rank. Face cards have ranks 11-13.
+func (c Card) Rank() int { return int(c/4 + 1) }
+
 // IsAce reports whether a card is an ace.
-func (c Card) IsAce() bool { return c < 4 }
+func (c Card) IsAce() bool { return c.Rank() == 1 }
 
 // IsSpade reports whether a card is a spade.
 func (c Card) IsSpade() bool { return c%4 == 3 }

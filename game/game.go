@@ -21,6 +21,9 @@ type game struct {
 
 	// table contains the cards on the table.
 	table map[card.Card]bool
+
+	// lastCapture records who played the most recent capture.
+	lastCapture int
 }
 
 // Play plays a game of Cassino.
@@ -50,6 +53,10 @@ func Play(p0, p1 Player) (score []int) {
 	}
 	for len(g.deck) != 0 {
 		g.playHand()
+	}
+	for c := range g.table {
+		delete(g.table, c)
+		g.keep[g.lastCapture][c] = true
 	}
 
 	score = make([]int, 2)
@@ -106,15 +113,61 @@ func (g *game) playHand() {
 				g.table[c] = true
 				continue
 			}
-			for _, cc := range captured {
-				if !g.table[cc] || c.Rank() != cc.Rank() {
-					panic(fmt.Sprintf("invalid capture %v using %v", cc, c))
+			if err := g.validateCapture(c, captured); err != nil {
+				panic(err)
+			}
+			for _, set := range captured {
+				for _, cc := range set {
+					delete(g.table, cc)
+					g.keep[i][cc] = true
 				}
-				delete(g.table, cc)
-				g.keep[i][cc] = true
 			}
 			delete(hand[i], c)
 			g.keep[i][c] = true
+			g.lastCapture = i
 		}
 	}
+}
+
+// validateCapture checks whether a capture is valid.
+func (g *game) validateCapture(c card.Card, captured [][]card.Card) error {
+	// capCards records the cards involved the capture.
+	capCards := make(map[card.Card]bool)
+	switch {
+	case c.IsFace():
+		for _, set := range captured {
+			if len(set) != 1 {
+				return fmt.Errorf("invalid capture %v using %v", set, c)
+			}
+			cc := set[0]
+			if !g.table[cc] || c.Rank() != cc.Rank() {
+				return fmt.Errorf("invalid capture %v using %v", set, c)
+			}
+			if capCards[cc] {
+				return fmt.Errorf("duplicate capture %v", cc)
+			}
+			capCards[cc] = true
+		}
+	default:
+		for _, set := range captured {
+			if len(set) == 0 {
+				return fmt.Errorf("invalid capture %v using %v", set, c)
+			}
+			var sum int
+			for _, cc := range set {
+				if !g.table[cc] || cc.IsFace() {
+					return fmt.Errorf("invalid capture %v using %v", set, c)
+				}
+				if capCards[cc] {
+					return fmt.Errorf("duplicate capture %v", cc)
+				}
+				capCards[cc] = true
+				sum += cc.Rank()
+			}
+			if sum != c.Rank() {
+				return fmt.Errorf("invalid capture %v using %v", set, c)
+			}
+		}
+	}
+	return nil
 }

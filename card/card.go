@@ -20,6 +20,9 @@ func (c Card) Rank() int { return int(c/4 + 1) }
 // IsAce reports whether a card is an ace.
 func (c Card) IsAce() bool { return c.Rank() == 1 }
 
+// IsFace reports whether a card is a face card.
+func (c Card) IsFace() bool { return c.Rank() > 10 }
+
 // IsSpade reports whether a card is a spade.
 func (c Card) IsSpade() bool { return c%4 == 3 }
 

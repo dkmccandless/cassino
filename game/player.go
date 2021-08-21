@@ -11,7 +11,6 @@ type Player interface {
 	// Hand supplies a new hand of four cards.
 	Hand(hand []card.Card)
 
-	// Play reports the card the Player plays and any captured from the table,
-	// grouped into subsets of equal value.
-	Play(table []card.Card) (card card.Card, captured [][]card.Card)
+	// Play reports the Action the player takes on their turn.
+	Play(table []card.Card) Action
 }

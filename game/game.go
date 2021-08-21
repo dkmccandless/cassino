@@ -26,6 +26,18 @@ type game struct {
 	lastCapture int
 }
 
+// An Action describes the action a player takes on their turn.
+type Action struct {
+	// Card is the player's hand card.
+	Card card.Card
+
+	// Sets lists any sets of cards on the table to be captured.
+	// For face cards, each must be in its own set.
+	// For cards with numerical value, the cards in each set must sum to the
+	// value of the capturing card.
+	Sets [][]card.Card
+}
+
 // Play plays a game of Cassino.
 func Play(p0, p1 Player) (score []int) {
 	g := &game{
@@ -103,69 +115,69 @@ func (g *game) playHand() {
 			for c := range g.table {
 				table = append(table, c)
 			}
-			c, captured := p.Play(table)
-			if !hand[i][c] {
-				panic(fmt.Sprintf("invalid card %v", c))
+			a := p.Play(table)
+			if !hand[i][a.Card] {
+				panic(fmt.Sprintf("invalid card %v", a.Card))
 			}
-			if len(captured) == 0 {
+			if len(a.Sets) == 0 {
 				// Trail
-				delete(hand[i], c)
-				g.table[c] = true
+				delete(hand[i], a.Card)
+				g.table[a.Card] = true
 				continue
 			}
-			if err := g.validateCapture(c, captured); err != nil {
+			if err := g.validateAction(a); err != nil {
 				panic(err)
 			}
-			for _, set := range captured {
+			for _, set := range a.Sets {
 				for _, cc := range set {
 					delete(g.table, cc)
 					g.keep[i][cc] = true
 				}
 			}
-			delete(hand[i], c)
-			g.keep[i][c] = true
+			delete(hand[i], a.Card)
+			g.keep[i][a.Card] = true
 			g.lastCapture = i
 		}
 	}
 }
 
-// validateCapture checks whether a capture is valid.
-func (g *game) validateCapture(c card.Card, captured [][]card.Card) error {
-	// capCards records the cards involved the capture.
-	capCards := make(map[card.Card]bool)
+// validateAction checks whether an Action is valid.
+func (g *game) validateAction(a Action) error {
+	// cards records the table cards involved the Action.
+	cards := make(map[card.Card]bool)
 	switch {
-	case c.IsFace():
-		for _, set := range captured {
+	case a.Card.IsFace():
+		for _, set := range a.Sets {
 			if len(set) != 1 {
-				return fmt.Errorf("invalid capture %v using %v", set, c)
+				return fmt.Errorf("invalid capture %v using %v", set, a.Card)
 			}
 			cc := set[0]
-			if !g.table[cc] || c.Rank() != cc.Rank() {
-				return fmt.Errorf("invalid capture %v using %v", set, c)
+			if !g.table[cc] || a.Card.Rank() != cc.Rank() {
+				return fmt.Errorf("invalid capture %v using %v", set, a.Card)
 			}
-			if capCards[cc] {
-				return fmt.Errorf("duplicate capture %v", cc)
+			if cards[cc] {
+				return fmt.Errorf("duplicate card %v", cc)
 			}
-			capCards[cc] = true
+			cards[cc] = true
 		}
 	default:
-		for _, set := range captured {
+		for _, set := range a.Sets {
 			if len(set) == 0 {
-				return fmt.Errorf("invalid capture %v using %v", set, c)
+				return fmt.Errorf("invalid capture %v using %v", set, a.Card)
 			}
 			var sum int
 			for _, cc := range set {
 				if !g.table[cc] || cc.IsFace() {
-					return fmt.Errorf("invalid capture %v using %v", set, c)
+					return fmt.Errorf("invalid capture %v using %v", set, a.Card)
 				}
-				if capCards[cc] {
-					return fmt.Errorf("duplicate capture %v", cc)
+				if cards[cc] {
+					return fmt.Errorf("duplicate card %v", cc)
 				}
-				capCards[cc] = true
+				cards[cc] = true
 				sum += cc.Rank()
 			}
-			if sum != c.Rank() {
-				return fmt.Errorf("invalid capture %v using %v", set, c)
+			if sum != a.Card.Rank() {
+				return fmt.Errorf("invalid capture %v using %v", set, a.Card)
 			}
 		}
 	}

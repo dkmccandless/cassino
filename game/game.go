@@ -38,8 +38,8 @@ type Action struct {
 	Sets [][]card.Card
 }
 
-// Play plays a game of Cassino.
-func Play(p0, p1 Player) (score []int) {
+// Play plays a game of Cassino and returns the final score.
+func Play(p0, p1 Player) []int {
 	g := &game{
 		players: []Player{p0, p1},
 		keep:    make([][]card.Card, 2),
@@ -67,28 +67,7 @@ func Play(p0, p1 Player) (score []int) {
 		g.capture(g.lastCapture, c)
 	}
 
-	score = make([]int, 2)
-	for i := range g.players {
-		if len(g.keep[i]) > 26 {
-			score[i] += 3
-		}
-		var spades int
-		for _, c := range g.keep[i] {
-			if c.IsSpade() {
-				spades++
-			}
-			switch {
-			case c == card.BigCassino:
-				score[i] += 2
-			case c == card.LittleCassino, c.IsAce():
-				score[i]++
-			}
-		}
-		if spades >= 7 {
-			score[i]++
-		}
-	}
-	return score
+	return []int{score(g.keep[0]), score(g.keep[1])}
 }
 
 // playHand deals and plays a single four-card hand.
@@ -183,4 +162,32 @@ func (g *game) validateAction(a Action) error {
 func (g *game) capture(player int, c card.Card) {
 	delete(g.table, c)
 	g.keep[player] = append(g.keep[player], c)
+}
+
+// score returns the score of a slice of cards.
+func score(cards []card.Card) int {
+	// Most cards: 3
+	// Most spades: 1
+	// Big Cassino: 2
+	// Little Cassino: 1
+	// Each ace: 1
+	var n, spades int
+	if len(cards) > 26 {
+		n += 3
+	}
+	for _, c := range cards {
+		if c.IsSpade() {
+			spades++
+		}
+		switch {
+		case c == card.BigCassino:
+			n += 2
+		case c == card.LittleCassino, c.IsAce():
+			n++
+		}
+	}
+	if spades >= 7 {
+		n++
+	}
+	return n
 }

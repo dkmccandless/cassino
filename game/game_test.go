@@ -1,6 +1,7 @@
 package game
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/dkmccandless/cassino/card"
@@ -171,6 +172,53 @@ func TestValidateAction(t *testing.T) {
 		if isErr := err != nil; isErr != test.isErr {
 			t.Errorf("validateAction(%q): got err=%v, expected %v",
 				name, isErr, test.isErr,
+			)
+		}
+	}
+}
+
+func TestCapture(t *testing.T) {
+	for name, test := range map[string]struct {
+		g      *game
+		player int
+		c      card.Card
+		want   *game
+	}{
+		"first": {
+			&game{
+				keep:  [][]card.Card{{}, {}},
+				table: map[card.Card]bool{7: true, 16: true, 21: true},
+			},
+			0,
+			7,
+			&game{
+				keep:  [][]card.Card{{7}, {}},
+				table: map[card.Card]bool{16: true, 21: true},
+			},
+		},
+		"sweep": {
+			&game{
+				keep: [][]card.Card{
+					{31, 30, 43, 40, 8, 11},
+					{7, 5, 0, 2, 50, 48},
+				},
+				table: map[card.Card]bool{25: true},
+			},
+			1,
+			25,
+			&game{
+				keep: [][]card.Card{
+					{31, 30, 43, 40, 8, 11},
+					{7, 5, 0, 2, 50, 48, 25},
+				},
+				table: map[card.Card]bool{},
+			},
+		},
+	} {
+		test.g.capture(test.player, test.c)
+		if !reflect.DeepEqual(test.g, test.want) {
+			t.Errorf("capture(%q): got %+v, expected %+v",
+				name, test.g, test.want,
 			)
 		}
 	}

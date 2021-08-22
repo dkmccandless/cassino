@@ -14,7 +14,7 @@ type game struct {
 	players []Player
 
 	// keep contains the cards captured by each player.
-	keep []map[card.Card]bool
+	keep [][]card.Card
 
 	// deck contains the cards not yet dealt.
 	deck []card.Card
@@ -42,11 +42,8 @@ type Action struct {
 func Play(p0, p1 Player) (score []int) {
 	g := &game{
 		players: []Player{p0, p1},
-		keep: []map[card.Card]bool{
-			make(map[card.Card]bool),
-			make(map[card.Card]bool),
-		},
-		table: make(map[card.Card]bool),
+		keep:    make([][]card.Card, 2),
+		table:   make(map[card.Card]bool),
 	}
 	for _, v := range rand.Perm(52) {
 		g.deck = append(g.deck, card.Card(v))
@@ -67,8 +64,7 @@ func Play(p0, p1 Player) (score []int) {
 		g.playHand()
 	}
 	for c := range g.table {
-		delete(g.table, c)
-		g.keep[g.lastCapture][c] = true
+		g.capture(g.lastCapture, c)
 	}
 
 	score = make([]int, 2)
@@ -77,7 +73,7 @@ func Play(p0, p1 Player) (score []int) {
 			score[i] += 3
 		}
 		var spades int
-		for c := range g.keep[i] {
+		for _, c := range g.keep[i] {
 			if c.IsSpade() {
 				spades++
 			}
@@ -130,12 +126,11 @@ func (g *game) playHand() {
 			}
 			for _, set := range a.Sets {
 				for _, cc := range set {
-					delete(g.table, cc)
-					g.keep[i][cc] = true
+					g.capture(i, cc)
 				}
 			}
 			delete(hand[i], a.Card)
-			g.keep[i][a.Card] = true
+			g.keep[i] = append(g.keep[i], a.Card)
 			g.lastCapture = i
 		}
 	}
@@ -182,4 +177,10 @@ func (g *game) validateAction(a Action) error {
 		}
 	}
 	return nil
+}
+
+// capture moves a card on the table into a player's keep.
+func (g *game) capture(player int, c card.Card) {
+	delete(g.table, c)
+	g.keep[player] = append(g.keep[player], c)
 }

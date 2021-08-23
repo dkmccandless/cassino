@@ -26,6 +26,15 @@ func (c Card) IsFace() bool { return c.Rank() > 10 }
 // IsSpade reports whether a card is a spade.
 func (c Card) IsSpade() bool { return c%4 == 3 }
 
+// Value returns a card's value.
+// A number card's value is its rank. Face cards have no value.
+func (c Card) Value() int {
+	if c.IsFace() {
+		return 0
+	}
+	return c.Rank()
+}
+
 // String returns a string representation of a card.
 func (c Card) String() string {
 	return `♣♦♥♠`[c%4*3:c%4*3+3] + `A23456789TJQK`[c.Rank()-1:c.Rank()]

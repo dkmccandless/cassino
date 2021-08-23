@@ -6,11 +6,11 @@ import "github.com/dkmccandless/cassino/card"
 type Player interface {
 	// Init informs the Player of the initial state of the game.
 	// pos is the Player's position in the order of play.
-	Init(pos int, table []card.Card)
+	Init(pos int, piles map[int]Pile)
 
 	// Hand supplies a new hand of four cards.
 	Hand(hand []card.Card)
 
 	// Play reports the Action the player takes on their turn.
-	Play(table []card.Card) Action
+	Play(piles map[int]Pile) Action
 }

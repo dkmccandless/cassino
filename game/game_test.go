@@ -9,84 +9,97 @@ import (
 
 func TestValidateAction(t *testing.T) {
 	for name, test := range map[string]struct {
-		piles map[int]Pile
-		a     Action
-		isErr bool
+		piles  map[int]Pile
+		player int
+		hand   map[card.Card]bool
+		a      Action
+		isErr  bool
 	}{
-		"face empty set": {
-			map[int]Pile{0: Pile{Cards: []card.Card{41}, Value: 0}},
-			Action{40, [][]int{{}}},
+		"invalid card": {
+			map[int]Pile{},
+			0,
+			map[card.Card]bool{1: true},
+			Action{Card: 0},
 			true,
 		},
-		"face captures with empty set": {
+		"trail with controlled build": {
+			map[int]Pile{
+				14: Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 1},
+			},
+			1,
+			map[card.Card]bool{39: true, 50: true},
+			Action{Card: 50},
+			true,
+		},
+		"invalid ID": {
+			map[int]Pile{10: Pile{Cards: []card.Card{1}, Value: 1}},
+			0,
+			map[card.Card]bool{0: true},
+			Action{Card: 0, Sets: [][]int{{11}}},
+			true,
+		},
+		"duplicate ID": {
+			map[int]Pile{10: Pile{Cards: []card.Card{1}, Value: 1}},
+			0,
+			map[card.Card]bool{0: true},
+			Action{Card: 0, Sets: [][]int{{10}, {10}}},
+			true,
+		},
+		"face capture invalid set": {
 			map[int]Pile{
 				0: Pile{Cards: []card.Card{41}, Value: 0},
 				1: Pile{Cards: []card.Card{42}, Value: 0},
 				2: Pile{Cards: []card.Card{43}, Value: 0},
 			},
-			Action{40, [][]int{{0}, {1}, {}}},
+			0,
+			map[card.Card]bool{40: true},
+			Action{Card: 40, Sets: [][]int{{0, 1, 2}}},
 			true,
 		},
-		"face invalid ID": {
-			map[int]Pile{0: Pile{Cards: []card.Card{41}, Value: 0}},
-			Action{40, [][]int{{40}}},
-			true,
-		},
-		"face captures with invalid ID": {
+		"face capture wrong rank": {
 			map[int]Pile{
-				0: Pile{Cards: []card.Card{41}, Value: 0},
-				1: Pile{Cards: []card.Card{42}, Value: 0},
+				0: Pile{Cards: []card.Card{44}, Value: 0},
 			},
-			Action{40, [][]int{{0}, {1}, {2}}},
+			0,
+			map[card.Card]bool{40: true},
+			Action{Card: 40, Sets: [][]int{{0}}},
 			true,
 		},
-		"face duplicate ID": {
-			map[int]Pile{0: Pile{Cards: []card.Card{41}, Value: 0}},
-			Action{40, [][]int{{0}, {0}}},
-			true,
-		},
-		"face captures with duplicate ID": {
+		"wrong set value": {
 			map[int]Pile{
-				0: Pile{Cards: []card.Card{41}, Value: 0},
-				1: Pile{Cards: []card.Card{42}, Value: 0},
+				0: Pile{Cards: []card.Card{0}, Value: 1},
+				1: Pile{Cards: []card.Card{28}, Value: 8},
 			},
-			Action{40, [][]int{{0}, {1}, {1}}},
+			0,
+			map[card.Card]bool{36: true},
+			Action{Card: 36, Sets: [][]int{{0, 1}}},
 			true,
 		},
-		"face invalid set": {
+		"build with no hand card": {
 			map[int]Pile{
-				0: Pile{Cards: []card.Card{41}, Value: 0},
-				1: Pile{Cards: []card.Card{42}, Value: 0},
-				2: Pile{Cards: []card.Card{43}, Value: 0},
+				0: Pile{Cards: []card.Card{0}, Value: 1},
+				1: Pile{Cards: []card.Card{7}, Value: 2},
 			},
-			Action{40, [][]int{{0, 1, 2}}},
+			0,
+			map[card.Card]bool{8: true, 15: true, 42: true, 45: true},
+			Action{Card: 8, Sets: [][]int{{0, 1}}, Build: true},
 			true,
 		},
-		"face captures with invalid set": {
+
+		"trail": {
 			map[int]Pile{
-				0: Pile{Cards: []card.Card{41}, Value: 0},
-				1: Pile{Cards: []card.Card{42}, Value: 0},
-				2: Pile{Cards: []card.Card{43}, Value: 0},
+				14: Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 0},
 			},
-			Action{40, [][]int{{0}, {1, 2}}},
-			true,
-		},
-		"face wrong rank": {
-			map[int]Pile{0: Pile{Cards: []card.Card{44}, Value: 0}},
-			Action{40, [][]int{{0}}},
-			true,
-		},
-		"face captures with wrong rank": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{41}, Value: 0},
-				1: Pile{Cards: []card.Card{44}, Value: 0},
-			},
-			Action{40, [][]int{{0}, {1}}},
-			true,
+			1,
+			map[card.Card]bool{39: true, 50: true},
+			Action{Card: 50},
+			false,
 		},
 		"face single": {
 			map[int]Pile{0: Pile{Cards: []card.Card{41}, Value: 0}},
-			Action{40, [][]int{{0}}},
+			0,
+			map[card.Card]bool{40: true},
+			Action{Card: 40, Sets: [][]int{{0}}},
 			false,
 		},
 		"face multiple": {
@@ -95,134 +108,52 @@ func TestValidateAction(t *testing.T) {
 				1: Pile{Cards: []card.Card{42}, Value: 0},
 				2: Pile{Cards: []card.Card{43}, Value: 0},
 			},
-			Action{40, [][]int{{0}, {1}, {2}}},
+			0,
+			map[card.Card]bool{40: true},
+			Action{Card: 40, Sets: [][]int{{0}, {1}, {2}}},
 			false,
 		},
-
-		"number empty set": {
+		"number single capture": {
 			map[int]Pile{0: Pile{Cards: []card.Card{1}, Value: 1}},
-			Action{0, [][]int{{}}},
-			true,
+			0,
+			map[card.Card]bool{0: true},
+			Action{Card: 0, Sets: [][]int{{0}}},
+			false,
 		},
-		"number captures with empty set": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{1}, Value: 1},
-				1: Pile{Cards: []card.Card{2}, Value: 1},
-				2: Pile{Cards: []card.Card{3}, Value: 1},
-			},
-			Action{0, [][]int{{0}, {1}, {}}},
-			true,
-		},
-		"number invalid ID": {
-			map[int]Pile{0: Pile{Cards: []card.Card{1}, Value: 1}},
-			Action{0, [][]int{{1}}},
-			true,
-		},
-		"number captures with invalid ID": {
+		"number multiple capture": {
 			map[int]Pile{
 				0: Pile{Cards: []card.Card{1}, Value: 1},
 				1: Pile{Cards: []card.Card{2}, Value: 1},
 			},
-			Action{0, [][]int{{0}, {1}, {2}}},
-			true,
+			0,
+			map[card.Card]bool{0: true},
+			Action{Card: 0, Sets: [][]int{{0}, {1}}},
+			false,
 		},
-		"number duplicate ID": {
-			map[int]Pile{0: Pile{Cards: []card.Card{1}, Value: 1}},
-			Action{0, [][]int{{0}, {0}}},
-			true,
-		},
-		"number captures with duplicate ID": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{1}, Value: 1},
-				1: Pile{Cards: []card.Card{2}, Value: 1},
-			},
-			Action{0, [][]int{{0}, {1}, {1}}},
-			true,
-		},
-		"number wrong rank": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{4}, Value: 2},
-			},
-			Action{0, [][]int{{0}}},
-			true,
-		},
-		"number captures with wrong rank": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{1}, Value: 1},
-				1: Pile{Cards: []card.Card{4}, Value: 2},
-			},
-			Action{0, [][]int{{0}, {1}}},
-			true,
-		},
-		"number wrong sum": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{0}, Value: 1},
-				1: Pile{Cards: []card.Card{28}, Value: 8},
-			},
-			Action{36, [][]int{{0, 1}}},
-			true,
-		},
-		"number captures with wrong sum": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{0}, Value: 1},
-				1: Pile{Cards: []card.Card{28}, Value: 8},
-				2: Pile{Cards: []card.Card{37}, Value: 10},
-			},
-			Action{36, [][]int{{2}, {0, 1}}},
-			true,
-		},
-		"number duplicate set": {
+		"number sum capture": {
 			map[int]Pile{
 				0: Pile{Cards: []card.Card{0}, Value: 1},
 				1: Pile{Cards: []card.Card{4}, Value: 2},
 				2: Pile{Cards: []card.Card{24}, Value: 7},
 			},
-			Action{36, [][]int{{0, 1, 2}, {0, 1, 2}}},
-			true,
-		},
-		"number duplicate ID in sets": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{0}, Value: 1},
-				1: Pile{Cards: []card.Card{32}, Value: 9},
-				2: Pile{Cards: []card.Card{33}, Value: 9},
-			},
-			Action{36, [][]int{{0, 1}, {0, 2}}},
-			true,
-		},
-		"number single": {
-			map[int]Pile{0: Pile{Cards: []card.Card{1}, Value: 1}},
-			Action{0, [][]int{{0}}},
+			0,
+			map[card.Card]bool{36: true},
+			Action{Card: 36, Sets: [][]int{{0, 1, 2}}},
 			false,
 		},
-		"number multiple": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{1}, Value: 1},
-				1: Pile{Cards: []card.Card{2}, Value: 1},
-				2: Pile{Cards: []card.Card{3}, Value: 1},
-			},
-			Action{0, [][]int{{0}, {1}, {2}}},
-			false,
-		},
-		"number sum": {
-			map[int]Pile{
-				0: Pile{Cards: []card.Card{0}, Value: 1},
-				1: Pile{Cards: []card.Card{4}, Value: 2},
-				2: Pile{Cards: []card.Card{24}, Value: 7},
-			},
-			Action{36, [][]int{{0, 1, 2}}},
-			false,
-		},
-		"number multiple sums": {
+		"number multiple sums capture": {
 			map[int]Pile{
 				0: Pile{Cards: []card.Card{0}, Value: 1},
 				1: Pile{Cards: []card.Card{4}, Value: 2},
 				2: Pile{Cards: []card.Card{28}, Value: 8},
 				3: Pile{Cards: []card.Card{32}, Value: 9},
 			},
-			Action{36, [][]int{{0, 3}, {1, 2}}},
+			0,
+			map[card.Card]bool{36: true},
+			Action{Card: 36, Sets: [][]int{{0, 3}, {1, 2}}},
 			false,
 		},
-		"number mixed": {
+		"number mixed capture": {
 			map[int]Pile{
 				0: Pile{Cards: []card.Card{0}, Value: 1},
 				1: Pile{Cards: []card.Card{4}, Value: 2},
@@ -230,11 +161,66 @@ func TestValidateAction(t *testing.T) {
 				3: Pile{Cards: []card.Card{32}, Value: 9},
 				4: Pile{Cards: []card.Card{37}, Value: 10},
 			},
-			Action{36, [][]int{{4}, {0, 3}, {1, 2}}},
+			0,
+			map[card.Card]bool{36: true},
+			Action{Card: 36, Sets: [][]int{{4}, {0, 3}, {1, 2}}},
+			false,
+		},
+		"number single build": {
+			map[int]Pile{0: Pile{Cards: []card.Card{1}, Value: 1}},
+			0,
+			map[card.Card]bool{0: true, 2: true},
+			Action{Card: 0, Sets: [][]int{{0}}, Build: true},
+			false,
+		},
+		"number multiple build": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{1}, Value: 1},
+				1: Pile{Cards: []card.Card{2}, Value: 1},
+			},
+			0,
+			map[card.Card]bool{0: true, 2: true},
+			Action{Card: 0, Sets: [][]int{{0}, {1}}, Build: true},
+			false,
+		},
+		"number sum build": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{0}, Value: 1},
+				1: Pile{Cards: []card.Card{4}, Value: 2},
+				2: Pile{Cards: []card.Card{24}, Value: 7},
+			},
+			0,
+			map[card.Card]bool{36: true, 39: true},
+			Action{Card: 36, Sets: [][]int{{0, 1, 2}}, Build: true},
+			false,
+		},
+		"number multiple sums build": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{0}, Value: 1},
+				1: Pile{Cards: []card.Card{4}, Value: 2},
+				2: Pile{Cards: []card.Card{28}, Value: 8},
+				3: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+			0,
+			map[card.Card]bool{36: true, 39: true},
+			Action{Card: 36, Sets: [][]int{{0, 3}, {1, 2}}, Build: true},
+			false,
+		},
+		"number mixed build": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{0}, Value: 1},
+				1: Pile{Cards: []card.Card{4}, Value: 2},
+				2: Pile{Cards: []card.Card{28}, Value: 8},
+				3: Pile{Cards: []card.Card{32}, Value: 9},
+				4: Pile{Cards: []card.Card{37}, Value: 10},
+			},
+			0,
+			map[card.Card]bool{36: true, 39: true},
+			Action{Card: 36, Sets: [][]int{{4}, {0, 3}, {1, 2}}, Build: true},
 			false,
 		},
 	} {
-		err := (&game{piles: test.piles}).validateAction(test.a)
+		err := (&game{piles: test.piles}).validateAction(test.player, test.hand, test.a)
 		if isErr := err != nil; isErr != test.isErr {
 			switch {
 			case isErr:
@@ -248,7 +234,7 @@ func TestValidateAction(t *testing.T) {
 	}
 }
 
-func TestAddPile(t *testing.T) {
+func TestAddCardPile(t *testing.T) {
 	for name, test := range map[string]struct {
 		g    *game
 		c    card.Card
@@ -290,7 +276,70 @@ func TestAddPile(t *testing.T) {
 			},
 		},
 	} {
-		if test.g.addPile(test.c); !reflect.DeepEqual(test.g, test.want) {
+		if test.g.addCardPile(test.c); !reflect.DeepEqual(test.g, test.want) {
+			t.Errorf("addCardPile(%q): got %+v, expected %+v",
+				name, test.g, test.want,
+			)
+		}
+	}
+}
+
+func TestAddPile(t *testing.T) {
+	for name, test := range map[string]struct {
+		g    *game
+		p    Pile
+		want *game
+	}{
+		"single": {
+			&game{
+				piles:  map[int]Pile{},
+				npiles: 9,
+			},
+			Pile{Cards: []card.Card{11}, Value: 3},
+			&game{
+				piles: map[int]Pile{
+					10: Pile{Cards: []card.Card{11}, Value: 3},
+				},
+				npiles: 10,
+			},
+		},
+		"empty": {
+			&game{
+				piles:  map[int]Pile{},
+				npiles: 9,
+			},
+			Pile{Cards: []card.Card{0, 32, 36}, Value: 10},
+			&game{
+				piles: map[int]Pile{
+					10: Pile{Cards: []card.Card{0, 32, 36}, Value: 10},
+				},
+				npiles: 10,
+			},
+		},
+		"non-empty": {
+			&game{
+				piles: map[int]Pile{
+					6:  Pile{Cards: []card.Card{50}, Value: 0},
+					9:  Pile{Cards: []card.Card{16}, Value: 5},
+					11: Pile{Cards: []card.Card{33}, Value: 9},
+					12: Pile{Cards: []card.Card{22}, Value: 6},
+				},
+				npiles: 15,
+			},
+			Pile{Cards: []card.Card{19, 15, 3, 31, 32}, Value: 9},
+			&game{
+				piles: map[int]Pile{
+					6:  Pile{Cards: []card.Card{50}, Value: 0},
+					9:  Pile{Cards: []card.Card{16}, Value: 5},
+					11: Pile{Cards: []card.Card{33}, Value: 9},
+					12: Pile{Cards: []card.Card{22}, Value: 6},
+					16: Pile{Cards: []card.Card{19, 15, 3, 31, 32}, Value: 9},
+				},
+				npiles: 16,
+			},
+		},
+	} {
+		if test.g.addPile(test.p); !reflect.DeepEqual(test.g, test.want) {
 			t.Errorf("addPile(%q): got %+v, expected %+v",
 				name, test.g, test.want,
 			)
@@ -385,6 +434,22 @@ func TestScore(t *testing.T) {
 	} {
 		if n := score(test.cards); n != test.n {
 			t.Errorf("score(%v): got %v, expected %v", test.cards, n, test.n)
+		}
+	}
+}
+
+func TestCopyPile(t *testing.T) {
+	for _, p := range []Pile{
+		Pile{Cards: []card.Card{51}},
+		Pile{Cards: []card.Card{0}, Value: 1},
+		Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 1},
+	} {
+		c := copyPile(p)
+		if &c.Cards == &p.Cards {
+			t.Errorf("copyPile(%+v): copy shares memory", p)
+		}
+		if !reflect.DeepEqual(c, p) {
+			t.Errorf("copyPile(%+v): copy is not deeply equal", p)
 		}
 	}
 }

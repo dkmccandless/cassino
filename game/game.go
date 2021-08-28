@@ -13,6 +13,9 @@ type game struct {
 	// players records the Players in order.
 	players []Player
 
+	// hand contains the cards in each player's hand.
+	hand []map[card.Card]bool
+
 	// keep contains the cards captured by each player.
 	keep [][]card.Card
 
@@ -71,8 +74,12 @@ type Pile struct {
 func Play(p0, p1 Player) []int {
 	g := &game{
 		players: []Player{p0, p1},
-		keep:    make([][]card.Card, 2),
-		piles:   make(map[int]Pile),
+		hand: []map[card.Card]bool{
+			make(map[card.Card]bool, 4),
+			make(map[card.Card]bool, 4),
+		},
+		keep:  make([][]card.Card, 2),
+		piles: make(map[int]Pile),
 	}
 	for _, v := range rand.Perm(52) {
 		g.deck = append(g.deck, card.Card(v))
@@ -101,32 +108,28 @@ func Play(p0, p1 Player) []int {
 
 // playHand deals and plays a single four-card hand.
 func (g *game) playHand() {
-	hand := []map[card.Card]bool{
-		make(map[card.Card]bool, 4),
-		make(map[card.Card]bool, 4),
-	}
 	for i, p := range g.players {
 		for _, c := range g.deck[:4] {
-			hand[i][c] = true
+			g.hand[i][c] = true
 		}
 		p.Hand(append([]card.Card{}, g.deck[:4]...))
 		g.deck = g.deck[4:]
 	}
 
-	for len(hand[0]) != 0 {
+	for len(g.hand[0]) != 0 {
 		for i, p := range g.players {
 			piles := make(map[int]Pile, len(g.piles))
 			for id, p := range g.piles {
 				piles[id] = copyPile(p)
 			}
 			a := p.Play(piles)
-			if err := g.validateAction(i, hand[i], a); err != nil {
+			if err := g.validateAction(i, a); err != nil {
 				panic(err)
 			}
 			switch {
 			case len(a.Add) == 0 && len(a.Sets) == 0:
 				// Trail
-				delete(hand[i], a.Card)
+				delete(g.hand[i], a.Card)
 				g.addCardPile(a.Card)
 			case a.isBuild():
 				value := a.Card.Rank()
@@ -149,7 +152,7 @@ func (g *game) playHand() {
 					delete(g.piles, id)
 				}
 				p.Cards = append(p.Cards, a.Card)
-				delete(hand[i], a.Card)
+				delete(g.hand[i], a.Card)
 				g.addPile(p)
 			default:
 				for _, set := range a.Sets {
@@ -158,7 +161,7 @@ func (g *game) playHand() {
 					}
 				}
 				g.keep[i] = append(g.keep[i], a.Card)
-				delete(hand[i], a.Card)
+				delete(g.hand[i], a.Card)
 				g.lastCapture = i
 			}
 		}
@@ -166,8 +169,8 @@ func (g *game) playHand() {
 }
 
 // validateAction checks whether an Action is valid.
-func (g *game) validateAction(player int, hand map[card.Card]bool, a Action) error {
-	if !hand[a.Card] {
+func (g *game) validateAction(player int, a Action) error {
+	if !g.hand[player][a.Card] {
 		return fmt.Errorf("invalid card %v", a.Card)
 	}
 	if len(a.Add) == 0 && len(a.Sets) == 0 {
@@ -245,7 +248,7 @@ func (g *game) validateAction(player int, hand map[card.Card]bool, a Action) err
 	}
 
 	// Builds must have a card in hand that can capture
-	for c := range hand {
+	for c := range g.hand[player] {
 		if c == a.Card {
 			continue
 		}

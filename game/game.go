@@ -34,10 +34,14 @@ type Action struct {
 	// Card is the player's hand card.
 	Card card.Card
 
+	// Add lists any IDs of Piles to be combined with the hand card to create a
+	// build of a higher value. Add may not contain any compound builds.
+	Add []int
+
 	// Sets lists any IDs of Piles to be captured or built with.
 	// For face cards, each Pile must be in its own set.
-	// For number cards, the values of the Piles in each set must sum to the
-	// value of the hand card.
+	// For number cards, the sum of the values of the Piles in each set must
+	// equal the sum of the hand card's rank and the values of the Piles in Add.
 	Sets [][]int
 
 	// Build reports whether the Action creates or modifies a build.
@@ -53,6 +57,11 @@ type Pile struct {
 	// Value is the Pile's numerical value.
 	// Face cards have no value.
 	Value int
+
+	// Compound records whether the Pile is a compound build.
+	// A compound build has been built from two or more sets.
+	// Its value cannot subsequently change.
+	Compound bool
 
 	// Controller is the player who last played onto the Pile, if it is a build.
 	Controller int
@@ -115,17 +124,29 @@ func (g *game) playHand() {
 				panic(err)
 			}
 			switch {
-			case len(a.Sets) == 0:
+			case len(a.Add) == 0 && len(a.Sets) == 0:
 				// Trail
 				delete(hand[i], a.Card)
 				g.addCardPile(a.Card)
-			case a.Build:
-				p := Pile{Value: a.Card.Rank(), Controller: i}
+			case a.isBuild():
+				value := a.Card.Rank()
+				for _, id := range a.Add {
+					value += g.piles[id].Value
+				}
+				p := Pile{
+					Value:      value,
+					Compound:   len(a.Sets) > 0,
+					Controller: i,
+				}
 				for _, set := range a.Sets {
 					for _, id := range set {
 						p.Cards = append(p.Cards, g.piles[id].Cards...)
 						delete(g.piles, id)
 					}
+				}
+				for _, id := range a.Add {
+					p.Cards = append(p.Cards, g.piles[id].Cards...)
+					delete(g.piles, id)
 				}
 				p.Cards = append(p.Cards, a.Card)
 				delete(hand[i], a.Card)
@@ -136,8 +157,8 @@ func (g *game) playHand() {
 						g.capture(i, id)
 					}
 				}
-				delete(hand[i], a.Card)
 				g.keep[i] = append(g.keep[i], a.Card)
+				delete(hand[i], a.Card)
 				g.lastCapture = i
 			}
 		}
@@ -149,7 +170,7 @@ func (g *game) validateAction(player int, hand map[card.Card]bool, a Action) err
 	if !hand[a.Card] {
 		return fmt.Errorf("invalid card %v", a.Card)
 	}
-	if len(a.Sets) == 0 {
+	if len(a.Add) == 0 && len(a.Sets) == 0 {
 		// Trail
 		for _, p := range g.piles {
 			if len(p.Cards) > 1 && p.Controller == player {
@@ -175,6 +196,9 @@ func (g *game) validateAction(player int, hand map[card.Card]bool, a Action) err
 
 	// Face card sets must have exactly one card of matching rank
 	if a.Card.IsFace() {
+		if a.isBuild() {
+			return fmt.Errorf("cannot build with a face card")
+		}
 		for _, set := range a.Sets {
 			if len(set) != 1 {
 				return fmt.Errorf("invalid set %v using %v", set, a.Card)
@@ -186,22 +210,36 @@ func (g *game) validateAction(player int, hand map[card.Card]bool, a Action) err
 		return nil
 	}
 
+	// Add may only contain single number cards and simple builds
+	for _, id := range a.Add {
+		if g.piles[id].Value == 0 {
+			return fmt.Errorf("invalid added pile %v", g.piles[id])
+		}
+		if g.piles[id].Compound {
+			return fmt.Errorf("cannot add compound builds")
+		}
+	}
+
 	// Number card sets must have the correct sum and contain no face cards
+	value := a.Card.Rank()
+	for _, id := range a.Add {
+		value += g.piles[id].Value
+	}
 	for _, set := range a.Sets {
 		var sum int
 		for _, id := range set {
-			value := g.piles[id].Value
-			if value == 0 {
+			v := g.piles[id].Value
+			if v == 0 {
 				return fmt.Errorf("invalid pile %v using %v", g.piles[id], a.Card)
 			}
-			sum += value
+			sum += v
 		}
-		if sum != a.Card.Rank() {
+		if sum != value {
 			return fmt.Errorf("invalid set %v (sum %v) using %v", set, sum, a.Card)
 		}
 	}
 
-	if !a.Build {
+	if !a.isBuild() {
 		// Valid capture
 		return nil
 	}
@@ -211,12 +249,18 @@ func (g *game) validateAction(player int, hand map[card.Card]bool, a Action) err
 		if c == a.Card {
 			continue
 		}
-		if c.Rank() == a.Card.Rank() {
+		if c.Rank() == value {
 			// Valid build
 			return nil
 		}
 	}
 	return fmt.Errorf("no card to capture build")
+}
+
+// isBuild reports whether an Action is a build.
+// An Action is a build if it has a non-empty Add or its Build flag is set.
+func (a Action) isBuild() bool {
+	return len(a.Add) > 0 || a.Build
 }
 
 // addCardPile adds a new Pile containing a single card to the table.
@@ -273,6 +317,7 @@ func copyPile(p Pile) Pile {
 	return Pile{
 		append([]card.Card{}, p.Cards...),
 		p.Value,
+		p.Compound,
 		p.Controller,
 	}
 }

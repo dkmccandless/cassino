@@ -45,6 +45,24 @@ func TestValidateAction(t *testing.T) {
 			Action{Card: 0, Sets: [][]int{{10}, {10}}},
 			true,
 		},
+		"face card with add": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{40}, Value: 0},
+			},
+			0,
+			map[card.Card]bool{17: true, 18: true},
+			Action{Card: 17, Add: []int{0}},
+			true,
+		},
+		"face build": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{41}, Value: 0},
+			},
+			0,
+			map[card.Card]bool{40: true, 42: true},
+			Action{Card: 40, Sets: [][]int{{0}}, Build: true},
+			true,
+		},
 		"face capture invalid set": {
 			map[int]Pile{
 				0: Pile{Cards: []card.Card{41}, Value: 0},
@@ -65,6 +83,35 @@ func TestValidateAction(t *testing.T) {
 			Action{Card: 40, Sets: [][]int{{0}}},
 			true,
 		},
+		"compound add": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{32, 33}, Value: 9, Compound: true},
+			},
+			0,
+			map[card.Card]bool{0: true, 37: true},
+			Action{Card: 0, Add: []int{0}},
+			true,
+		},
+		"face card in add": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{40}, Value: 0},
+				1: Pile{Cards: []card.Card{9}, Value: 3},
+			},
+			0,
+			map[card.Card]bool{5: true, 18: true},
+			Action{Card: 5, Add: []int{0, 1}},
+			true,
+		},
+		"face set": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{40}, Value: 0},
+				1: Pile{Cards: []card.Card{18}, Value: 5},
+			},
+			0,
+			map[card.Card]bool{17: true},
+			Action{Card: 17, Sets: [][]int{{0, 1}}},
+			true,
+		},
 		"wrong set value": {
 			map[int]Pile{
 				0: Pile{Cards: []card.Card{0}, Value: 1},
@@ -83,6 +130,15 @@ func TestValidateAction(t *testing.T) {
 			0,
 			map[card.Card]bool{8: true, 15: true, 42: true, 45: true},
 			Action{Card: 8, Sets: [][]int{{0, 1}}, Build: true},
+			true,
+		},
+		"add build with no hand card": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+			0,
+			map[card.Card]bool{0: true, 33: true},
+			Action{Card: 0, Add: []int{0}},
 			true,
 		},
 
@@ -219,6 +275,26 @@ func TestValidateAction(t *testing.T) {
 			Action{Card: 36, Sets: [][]int{{4}, {0, 3}, {1, 2}}, Build: true},
 			false,
 		},
+		"number add build": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+			0,
+			map[card.Card]bool{0: true, 36: true},
+			Action{Card: 0, Add: []int{0}},
+			false,
+		},
+		"number add sets build": {
+			map[int]Pile{
+				0: Pile{Cards: []card.Card{4}, Value: 2},
+				1: Pile{Cards: []card.Card{28}, Value: 8},
+				2: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+			0,
+			map[card.Card]bool{0: true, 36: true},
+			Action{Card: 0, Add: []int{2}, Sets: [][]int{{0, 1}}},
+			false,
+		},
 	} {
 		err := (&game{piles: test.piles}).validateAction(test.player, test.hand, test.a)
 		if isErr := err != nil; isErr != test.isErr {
@@ -230,6 +306,25 @@ func TestValidateAction(t *testing.T) {
 			case test.isErr:
 				t.Errorf("validateAction(%q): got nil, expected error", name)
 			}
+		}
+	}
+}
+
+func TestIsBuild(t *testing.T) {
+	for _, test := range []struct {
+		a    Action
+		want bool
+	}{
+		{Action{Card: 20}, false},
+		{Action{Card: 20, Add: []int{7}}, true},
+		{Action{Card: 20, Sets: [][]int{{9}}}, false},
+		{Action{Card: 20, Sets: [][]int{{9}}, Build: true}, true},
+		{Action{Card: 20, Add: []int{7}, Sets: [][]int{{9}}, Build: true}, true},
+	} {
+		if isBuild := test.a.isBuild(); isBuild != test.want {
+			t.Errorf("isBuild(%+v): got %v, expected %v",
+				test.a, isBuild, test.want,
+			)
 		}
 	}
 }

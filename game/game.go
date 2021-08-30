@@ -106,7 +106,7 @@ func Play(p0, p1 Player) []int {
 	return []int{score(g.keep[0]), score(g.keep[1])}
 }
 
-// playHand deals and plays a single four-card hand.
+// playHand deals and plays a four-card hand.
 func (g *game) playHand() {
 	for i, p := range g.players {
 		for _, c := range g.deck[:4] {
@@ -126,45 +126,51 @@ func (g *game) playHand() {
 			if err := g.validateAction(i, a); err != nil {
 				panic(err)
 			}
-			switch {
-			case len(a.Add) == 0 && len(a.Sets) == 0:
-				// Trail
-				delete(g.hand[i], a.Card)
-				g.addCardPile(a.Card)
-			case a.isBuild():
-				value := a.Card.Rank()
-				for _, id := range a.Add {
-					value += g.piles[id].Value
-				}
-				p := Pile{
-					Value:      value,
-					Compound:   len(a.Sets) > 0,
-					Controller: i,
-				}
-				for _, set := range a.Sets {
-					for _, id := range set {
-						p.Cards = append(p.Cards, g.piles[id].Cards...)
-						delete(g.piles, id)
-					}
-				}
-				for _, id := range a.Add {
-					p.Cards = append(p.Cards, g.piles[id].Cards...)
-					delete(g.piles, id)
-				}
-				p.Cards = append(p.Cards, a.Card)
-				delete(g.hand[i], a.Card)
-				g.addPile(p)
-			default:
-				for _, set := range a.Sets {
-					for _, id := range set {
-						g.capture(i, id)
-					}
-				}
-				g.keep[i] = append(g.keep[i], a.Card)
-				delete(g.hand[i], a.Card)
-				g.lastCapture = i
+			g.do(i, a)
+		}
+	}
+}
+
+// do performs a valid Action.
+func (g *game) do(player int, a Action) {
+	switch {
+	case len(a.Add) == 0 && len(a.Sets) == 0:
+		// Trail
+		delete(g.hand[player], a.Card)
+		g.addCardPile(a.Card)
+	case a.isBuild():
+		value := a.Card.Rank()
+		for _, id := range a.Add {
+			value += g.piles[id].Value
+		}
+		p := Pile{
+			Value:      value,
+			Compound:   len(a.Sets) > 0,
+			Controller: player,
+		}
+		for _, set := range a.Sets {
+			for _, id := range set {
+				p.Cards = append(p.Cards, g.piles[id].Cards...)
+				delete(g.piles, id)
 			}
 		}
+		for _, id := range a.Add {
+			p.Cards = append(p.Cards, g.piles[id].Cards...)
+			delete(g.piles, id)
+		}
+		p.Cards = append(p.Cards, a.Card)
+		delete(g.hand[player], a.Card)
+		g.addPile(p)
+	default:
+		// Capture
+		for _, set := range a.Sets {
+			for _, id := range set {
+				g.capture(player, id)
+			}
+		}
+		g.keep[player] = append(g.keep[player], a.Card)
+		delete(g.hand[player], a.Card)
+		g.lastCapture = player
 	}
 }
 

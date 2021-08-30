@@ -7,449 +7,655 @@ import (
 	"github.com/dkmccandless/cassino/card"
 )
 
-func TestValidateAction(t *testing.T) {
-	for name, test := range map[string]struct {
-		g      game
-		player int
-		a      Action
-		isErr  bool
-	}{
-		"invalid card": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{1: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{},
+var actionTests = map[string]struct {
+	g      game
+	player int
+	a      Action
+	isErr  bool
+	want   game
+}{
+	"invalid card": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{1: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 0},
-			true,
+			piles: map[int]Pile{},
 		},
-		"trail with controlled build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{20: true},
-					map[card.Card]bool{39: true, 50: true},
-				},
-				piles: map[int]Pile{
-					14: Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 1},
-				},
+		0,
+		Action{Card: 0},
+		true,
+		game{},
+	},
+	"trail with owned build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{39: true, 50: true},
 			},
-			1,
-			Action{Card: 50},
-			true,
-		},
-		"invalid ID": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{10: Pile{Cards: []card.Card{1}, Value: 1}},
+			piles: map[int]Pile{
+				14: Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 1},
 			},
-			0,
-			Action{Card: 0, Sets: [][]int{{11}}},
-			true,
 		},
-		"duplicate ID": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{10: Pile{Cards: []card.Card{1}, Value: 1}},
+		1,
+		Action{Card: 50},
+		true,
+		game{},
+	},
+	"invalid ID": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 0, Sets: [][]int{{10}, {10}}},
-			true,
+			piles: map[int]Pile{10: Pile{Cards: []card.Card{1}, Value: 1}},
 		},
-		"face card with add": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{17: true, 18: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{40}, Value: 0},
-				},
+		0,
+		Action{Card: 0, Sets: [][]int{{11}}},
+		true,
+		game{},
+	},
+	"duplicate ID": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 17, Add: []int{0}},
-			true,
+			piles: map[int]Pile{10: Pile{Cards: []card.Card{1}, Value: 1}},
 		},
-		"face build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{40: true, 42: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{41}, Value: 0},
-				},
+		0,
+		Action{Card: 0, Sets: [][]int{{10}, {10}}},
+		true,
+		game{},
+	},
+	"face card with add": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{17: true, 18: true},
+				map[card.Card]bool{20: true, 21: true},
 			},
-			0,
-			Action{Card: 40, Sets: [][]int{{0}}, Build: true},
-			true,
-		},
-		"face capture invalid set": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{40: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{41}, Value: 0},
-					1: Pile{Cards: []card.Card{42}, Value: 0},
-					2: Pile{Cards: []card.Card{43}, Value: 0},
-				},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{40}, Value: 0},
 			},
-			0,
-			Action{Card: 40, Sets: [][]int{{0, 1, 2}}},
-			true,
 		},
-		"face capture wrong rank": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{40: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{44}, Value: 0},
-				},
+		0,
+		Action{Card: 17, Add: []int{0}},
+		true,
+		game{},
+	},
+	"face build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{40: true, 42: true},
+				map[card.Card]bool{20: true, 21: true},
 			},
-			0,
-			Action{Card: 40, Sets: [][]int{{0}}},
-			true,
-		},
-		"compound add": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true, 37: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{32, 33}, Value: 9, Compound: true},
-				},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{41}, Value: 0},
 			},
-			0,
-			Action{Card: 0, Add: []int{0}},
-			true,
 		},
-		"face card in add": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{5: true, 18: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{40}, Value: 0},
-					1: Pile{Cards: []card.Card{9}, Value: 3},
-				},
+		0,
+		Action{Card: 40, Sets: [][]int{{0}}, Build: true},
+		true,
+		game{},
+	},
+	"face capture invalid set": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{40: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 5, Add: []int{0, 1}},
-			true,
-		},
-		"face set": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{17: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{40}, Value: 0},
-					1: Pile{Cards: []card.Card{18}, Value: 5},
-				},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{41}, Value: 0},
+				1: Pile{Cards: []card.Card{42}, Value: 0},
+				2: Pile{Cards: []card.Card{43}, Value: 0},
 			},
-			0,
-			Action{Card: 17, Sets: [][]int{{0, 1}}},
-			true,
 		},
-		"wrong set value": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{36: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{28}, Value: 8},
-				},
+		0,
+		Action{Card: 40, Sets: [][]int{{0, 1, 2}}},
+		true,
+		game{},
+	},
+	"face capture wrong rank": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{40: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 36, Sets: [][]int{{0, 1}}},
-			true,
-		},
-		"build with no hand card": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{8: true, 15: true, 42: true, 45: true},
-					map[card.Card]bool{20: true, 21: true, 22: true, 23: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{7}, Value: 2},
-				},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{44}, Value: 0},
 			},
-			0,
-			Action{Card: 8, Sets: [][]int{{0, 1}}, Build: true},
-			true,
 		},
-		"add build with no hand card": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true, 33: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{32}, Value: 9},
-				},
+		0,
+		Action{Card: 40, Sets: [][]int{{0}}},
+		true,
+		game{},
+	},
+	"compound add": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true, 37: true},
+				map[card.Card]bool{20: true, 21: true},
 			},
-			0,
-			Action{Card: 0, Add: []int{0}},
-			true,
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{32, 33}, Value: 9, Compound: true},
+			},
 		},
+		0,
+		Action{Card: 0, Add: []int{0}},
+		true,
+		game{},
+	},
+	"face card in add": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{5: true, 18: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{40}, Value: 0},
+				1: Pile{Cards: []card.Card{9}, Value: 3},
+			},
+		},
+		0,
+		Action{Card: 5, Add: []int{0, 1}},
+		true,
+		game{},
+	},
+	"face set": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{17: true},
+				map[card.Card]bool{20: true},
+			},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{40}, Value: 0},
+				1: Pile{Cards: []card.Card{18}, Value: 5},
+			},
+		},
+		0,
+		Action{Card: 17, Sets: [][]int{{0, 1}}},
+		true,
+		game{},
+	},
+	"wrong set value": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{36: true},
+				map[card.Card]bool{20: true},
+			},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{0}, Value: 1},
+				1: Pile{Cards: []card.Card{28}, Value: 8},
+			},
+		},
+		0,
+		Action{Card: 36, Sets: [][]int{{0, 1}}},
+		true,
+		game{},
+	},
+	"build with no hand card": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{8: true, 15: true, 42: true, 45: true},
+				map[card.Card]bool{20: true, 21: true, 22: true, 23: true},
+			},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{0}, Value: 1},
+				1: Pile{Cards: []card.Card{7}, Value: 2},
+			},
+		},
+		0,
+		Action{Card: 8, Sets: [][]int{{0, 1}}, Build: true},
+		true,
+		game{},
+	},
+	"add build with no hand card": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true, 33: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				0: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+		},
+		0,
+		Action{Card: 0, Add: []int{0}},
+		true,
+		game{},
+	},
 
-		"trail": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{20: true},
-					map[card.Card]bool{39: true, 50: true},
-				},
-				piles: map[int]Pile{
-					14: Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 0},
-				},
+	"trail": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{39: true, 50: true},
 			},
-			1,
-			Action{Card: 50},
-			false,
-		},
-		"face single": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{40: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{0: Pile{Cards: []card.Card{41}, Value: 0}},
+			piles: map[int]Pile{
+				14: Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 0},
 			},
-			0,
-			Action{Card: 40, Sets: [][]int{{0}}},
-			false,
+			npiles: 14,
 		},
-		"face multiple": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{40: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{41}, Value: 0},
-					1: Pile{Cards: []card.Card{42}, Value: 0},
-					2: Pile{Cards: []card.Card{43}, Value: 0},
-				},
+		1,
+		Action{Card: 50},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{39: true},
 			},
-			0,
-			Action{Card: 40, Sets: [][]int{{0}, {1}, {2}}},
-			false,
-		},
-		"number single capture": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{0: Pile{Cards: []card.Card{1}, Value: 1}},
+			piles: map[int]Pile{
+				14: Pile{Cards: []card.Card{2, 34, 38}, Value: 10, Controller: 0},
+				15: Pile{Cards: []card.Card{50}},
 			},
-			0,
-			Action{Card: 0, Sets: [][]int{{0}}},
-			false,
+			npiles: 15,
 		},
-		"number multiple capture": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{1}, Value: 1},
-					1: Pile{Cards: []card.Card{2}, Value: 1},
-				},
+	},
+	"face single": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{40: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 0, Sets: [][]int{{0}, {1}}},
-			false,
-		},
-		"number sum capture": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{36: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{4}, Value: 2},
-					2: Pile{Cards: []card.Card{24}, Value: 7},
-				},
+			keep: [][]card.Card{[]card.Card{50}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{41}, Value: 0},
+				2: Pile{Cards: []card.Card{51}, Value: 0},
 			},
-			0,
-			Action{Card: 36, Sets: [][]int{{0, 1, 2}}},
-			false,
 		},
-		"number multiple sums capture": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{36: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{4}, Value: 2},
-					2: Pile{Cards: []card.Card{28}, Value: 8},
-					3: Pile{Cards: []card.Card{32}, Value: 9},
-				},
+		0,
+		Action{Card: 40, Sets: [][]int{{1}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 36, Sets: [][]int{{0, 3}, {1, 2}}},
-			false,
-		},
-		"number mixed capture": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{36: true},
-					map[card.Card]bool{20: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{4}, Value: 2},
-					2: Pile{Cards: []card.Card{28}, Value: 8},
-					3: Pile{Cards: []card.Card{32}, Value: 9},
-					4: Pile{Cards: []card.Card{37}, Value: 10},
-				},
+			keep: [][]card.Card{[]card.Card{50, 41, 40}, []card.Card{}},
+			piles: map[int]Pile{
+				2: Pile{Cards: []card.Card{51}, Value: 0},
 			},
-			0,
-			Action{Card: 36, Sets: [][]int{{4}, {0, 3}, {1, 2}}},
-			false,
 		},
-		"number single build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true, 2: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{0: Pile{Cards: []card.Card{1}, Value: 1}},
+	},
+	"face multiple": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{40: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 0, Sets: [][]int{{0}}, Build: true},
-			false,
-		},
-		"number multiple build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true, 2: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{1}, Value: 1},
-					1: Pile{Cards: []card.Card{2}, Value: 1},
-				},
+			keep: [][]card.Card{[]card.Card{49, 50}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{41}, Value: 0},
+				2: Pile{Cards: []card.Card{42}, Value: 0},
+				3: Pile{Cards: []card.Card{43}, Value: 0},
+				4: Pile{Cards: []card.Card{51}, Value: 0},
 			},
-			0,
-			Action{Card: 0, Sets: [][]int{{0}, {1}}, Build: true},
-			false,
 		},
-		"number sum build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{36: true, 39: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{4}, Value: 2},
-					2: Pile{Cards: []card.Card{24}, Value: 7},
-				},
+		0,
+		Action{Card: 40, Sets: [][]int{{1}, {2}, {3}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 36, Sets: [][]int{{0, 1, 2}}, Build: true},
-			false,
-		},
-		"number multiple sums build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{36: true, 39: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{4}, Value: 2},
-					2: Pile{Cards: []card.Card{28}, Value: 8},
-					3: Pile{Cards: []card.Card{32}, Value: 9},
-				},
+			keep: [][]card.Card{[]card.Card{49, 50, 41, 42, 43, 40}, []card.Card{}},
+			piles: map[int]Pile{
+				4: Pile{Cards: []card.Card{51}, Value: 0},
 			},
-			0,
-			Action{Card: 36, Sets: [][]int{{0, 3}, {1, 2}}, Build: true},
-			false,
 		},
-		"number mixed build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{36: true, 39: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{0}, Value: 1},
-					1: Pile{Cards: []card.Card{4}, Value: 2},
-					2: Pile{Cards: []card.Card{28}, Value: 8},
-					3: Pile{Cards: []card.Card{32}, Value: 9},
-					4: Pile{Cards: []card.Card{37}, Value: 10},
-				},
+	},
+	"number single capture": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 36, Sets: [][]int{{4}, {0, 3}, {1, 2}}, Build: true},
-			false,
-		},
-		"number add build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true, 36: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{32}, Value: 9},
-				},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{1}, Value: 1},
+				2: Pile{Cards: []card.Card{51}, Value: 0},
 			},
-			0,
-			Action{Card: 0, Add: []int{0}},
-			false,
 		},
-		"number add sets build": {
-			game{
-				hand: []map[card.Card]bool{
-					map[card.Card]bool{0: true, 36: true},
-					map[card.Card]bool{20: true, 21: true},
-				},
-				piles: map[int]Pile{
-					0: Pile{Cards: []card.Card{4}, Value: 2},
-					1: Pile{Cards: []card.Card{28}, Value: 8},
-					2: Pile{Cards: []card.Card{32}, Value: 9},
-				},
+		0,
+		Action{Card: 0, Sets: [][]int{{1}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
 			},
-			0,
-			Action{Card: 0, Add: []int{2}, Sets: [][]int{{0, 1}}},
-			false,
+			keep: [][]card.Card{[]card.Card{1, 0}, []card.Card{}},
+			piles: map[int]Pile{
+				2: Pile{Cards: []card.Card{51}, Value: 0},
+			},
 		},
-	} {
+	},
+	"number multiple capture": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{1}, Value: 1},
+				2: Pile{Cards: []card.Card{2}, Value: 1},
+				3: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+		0,
+		Action{Card: 0, Sets: [][]int{{1}, {2}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{1, 2, 0}, []card.Card{}},
+			piles: map[int]Pile{
+				3: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+	},
+	"number sum capture": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{36: true},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{0}, Value: 1},
+				2: Pile{Cards: []card.Card{4}, Value: 2},
+				3: Pile{Cards: []card.Card{24}, Value: 7},
+				4: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+		0,
+		Action{Card: 36, Sets: [][]int{{1, 2, 3}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{0, 4, 24, 36}, []card.Card{}},
+			piles: map[int]Pile{
+				4: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+	},
+	"number multiple sums capture": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{36: true},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{0}, Value: 1},
+				2: Pile{Cards: []card.Card{4}, Value: 2},
+				3: Pile{Cards: []card.Card{28}, Value: 8},
+				4: Pile{Cards: []card.Card{32}, Value: 9},
+				5: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+		0,
+		Action{Card: 36, Sets: [][]int{{1, 4}, {2, 3}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{0, 32, 4, 28, 36}, []card.Card{}},
+			piles: map[int]Pile{
+				5: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+	},
+	"number mixed capture": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{36: true},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{0}, Value: 1},
+				2: Pile{Cards: []card.Card{4}, Value: 2},
+				3: Pile{Cards: []card.Card{28}, Value: 8},
+				4: Pile{Cards: []card.Card{32}, Value: 9},
+				5: Pile{Cards: []card.Card{37}, Value: 10},
+				6: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+		0,
+		Action{Card: 36, Sets: [][]int{{5}, {1, 4}, {2, 3}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{37, 0, 32, 4, 28, 36}, []card.Card{}},
+			piles: map[int]Pile{
+				6: Pile{Cards: []card.Card{51}, Value: 0},
+			},
+		},
+	},
+	"number single build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true, 2: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{1}, Value: 1},
+			},
+			npiles: 1,
+		},
+		0,
+		Action{Card: 0, Sets: [][]int{{1}}, Build: true},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{2: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				2: Pile{Cards: []card.Card{1, 0}, Value: 1, Compound: true, Controller: 0},
+			},
+			npiles: 2,
+		},
+	},
+	"number multiple build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true, 2: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{1}, Value: 1},
+				2: Pile{Cards: []card.Card{2}, Value: 1},
+			},
+			npiles: 2,
+		},
+		0,
+		Action{Card: 0, Sets: [][]int{{1}, {2}}, Build: true},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{2: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				3: Pile{Cards: []card.Card{1, 2, 0}, Value: 1, Compound: true, Controller: 0},
+			},
+			npiles: 3,
+		},
+	},
+	"number sum build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{36: true, 39: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{0}, Value: 1},
+				2: Pile{Cards: []card.Card{4}, Value: 2},
+				3: Pile{Cards: []card.Card{24}, Value: 7},
+			},
+			npiles: 3,
+		},
+		1,
+		Action{Card: 36, Sets: [][]int{{1, 2, 3}}, Build: true},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{39: true},
+			},
+			piles: map[int]Pile{
+				4: Pile{Cards: []card.Card{0, 4, 24, 36}, Value: 10, Compound: true, Controller: 1},
+			},
+			npiles: 4,
+		},
+	},
+	"number multiple sums build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{36: true, 39: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{0}, Value: 1},
+				2: Pile{Cards: []card.Card{4}, Value: 2},
+				3: Pile{Cards: []card.Card{28}, Value: 8},
+				4: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+			npiles: 4,
+		},
+		0,
+		Action{Card: 36, Sets: [][]int{{1, 4}, {2, 3}}, Build: true},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{39: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				5: Pile{Cards: []card.Card{0, 32, 4, 28, 36}, Value: 10, Compound: true, Controller: 0},
+			},
+			npiles: 5,
+		},
+	},
+	"number mixed build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{36: true, 39: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{0}, Value: 1},
+				2: Pile{Cards: []card.Card{4}, Value: 2},
+				3: Pile{Cards: []card.Card{28}, Value: 8},
+				4: Pile{Cards: []card.Card{32}, Value: 9},
+				5: Pile{Cards: []card.Card{37}, Value: 10},
+			},
+			npiles: 5,
+		},
+		1,
+		Action{Card: 36, Sets: [][]int{{5}, {1, 4}, {2, 3}}, Build: true},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{39: true},
+			},
+			piles: map[int]Pile{
+				6: Pile{Cards: []card.Card{37, 0, 32, 4, 28, 36}, Value: 10, Compound: true, Controller: 1},
+			},
+			npiles: 6,
+		},
+	},
+	"number add build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true, 36: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+			npiles: 1,
+		},
+		0,
+		Action{Card: 0, Add: []int{1}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{36: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				2: Pile{Cards: []card.Card{32, 0}, Value: 10, Compound: false, Controller: 0},
+			},
+			npiles: 2,
+		},
+	},
+	"number add sets build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{0: true, 36: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{4}, Value: 2},
+				2: Pile{Cards: []card.Card{28}, Value: 8},
+				3: Pile{Cards: []card.Card{32}, Value: 9},
+			},
+			npiles: 3,
+		},
+		1,
+		Action{Card: 0, Add: []int{3}, Sets: [][]int{{1, 2}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{36: true},
+			},
+			piles: map[int]Pile{
+				4: Pile{Cards: []card.Card{4, 28, 32, 0}, Value: 10, Compound: true, Controller: 1},
+			},
+			npiles: 4,
+		},
+	},
+}
+
+func TestValidateAction(t *testing.T) {
+	for name, test := range actionTests {
 		err := test.g.validateAction(test.player, test.a)
 		if isErr := err != nil; isErr != test.isErr {
 			switch {
 			case isErr:
-				t.Errorf("validateAction(%q): got %v, expected nil",
-					name, err,
-				)
+				t.Errorf("validateAction(%q): got %v, expected nil", name, err)
 			case test.isErr:
 				t.Errorf("validateAction(%q): got nil, expected error", name)
 			}
+		}
+	}
+}
+
+func TestDo(t *testing.T) {
+	for name, test := range actionTests {
+		if test.isErr {
+			continue
+		}
+		test.g.do(test.player, test.a)
+		if !reflect.DeepEqual(test.g, test.want) {
+			t.Errorf("do(%q): got %+v, expected %+v", name, test.g, test.want)
 		}
 	}
 }

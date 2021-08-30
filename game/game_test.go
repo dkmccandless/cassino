@@ -632,6 +632,31 @@ var actionTests = map[string]struct {
 			npiles: 4,
 		},
 	},
+	"sweep": {
+		game{
+			score: []int{0, 0},
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{40: true},
+				map[card.Card]bool{20: true},
+			},
+			keep: [][]card.Card{[]card.Card{50}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{41}, Value: 0},
+			},
+		},
+		0,
+		Action{Card: 40, Sets: [][]int{{1}}},
+		false,
+		game{
+			score: []int{1, 0},
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{},
+				map[card.Card]bool{20: true},
+			},
+			keep:  [][]card.Card{[]card.Card{50, 41, 40}, []card.Card{}},
+			piles: map[int]Pile{},
+		},
+	},
 }
 
 func TestValidateAction(t *testing.T) {

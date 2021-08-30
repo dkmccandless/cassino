@@ -13,6 +13,9 @@ type game struct {
 	// players records the Players in order.
 	players []Player
 
+	// score records each player's score.
+	score []int
+
 	// hand contains the cards in each player's hand.
 	hand []map[card.Card]bool
 
@@ -74,6 +77,7 @@ type Pile struct {
 func Play(p0, p1 Player) []int {
 	g := &game{
 		players: []Player{p0, p1},
+		score:   []int{0, 0},
 		hand: []map[card.Card]bool{
 			make(map[card.Card]bool, 4),
 			make(map[card.Card]bool, 4),
@@ -103,7 +107,10 @@ func Play(p0, p1 Player) []int {
 		g.capture(g.lastCapture, id)
 	}
 
-	return []int{score(g.keep[0]), score(g.keep[1])}
+	for i := range g.players {
+		g.score[i] += score(g.keep[i])
+	}
+	return g.score
 }
 
 // playHand deals and plays a four-card hand.
@@ -171,6 +178,10 @@ func (g *game) do(player int, a Action) {
 		g.keep[player] = append(g.keep[player], a.Card)
 		delete(g.hand[player], a.Card)
 		g.lastCapture = player
+		if len(g.piles) == 0 {
+			// Sweep
+			g.score[player]++
+		}
 	}
 }
 

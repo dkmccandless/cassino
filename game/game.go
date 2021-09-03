@@ -133,13 +133,14 @@ func (g *game) playHand() {
 			if err := g.validateAction(i, a); err != nil {
 				panic(err)
 			}
-			g.do(i, a)
+			captured := g.do(i, a)
+			g.players[1-i].Note(a.Card, captured)
 		}
 	}
 }
 
-// do performs a valid Action.
-func (g *game) do(player int, a Action) {
+// do performs a valid Action and returns all cards that go to player's keep.
+func (g *game) do(player int, a Action) []card.Card {
 	switch {
 	case len(a.Add) == 0 && len(a.Sets) == 0:
 		// Trail
@@ -170,11 +171,14 @@ func (g *game) do(player int, a Action) {
 		g.addPile(p)
 	default:
 		// Capture
+		var cards []card.Card
 		for _, set := range a.Sets {
 			for _, id := range set {
+				cards = append(cards, g.piles[id].Cards...)
 				g.capture(player, id)
 			}
 		}
+		cards = append(cards, a.Card)
 		g.keep[player] = append(g.keep[player], a.Card)
 		delete(g.hand[player], a.Card)
 		g.lastCapture = player
@@ -182,7 +186,9 @@ func (g *game) do(player int, a Action) {
 			// Sweep
 			g.score[player]++
 		}
+		return cards
 	}
+	return nil
 }
 
 // validateAction checks whether an Action is valid.

@@ -274,22 +274,24 @@ func (g *game) validateAction(player int, a Action) error {
 		}
 	}
 
-	if !a.isBuild() {
-		// Valid capture
+	if a.isBuild() {
+		// Builds must have a card in hand that can capture
+		if !haveSameRank(g.hand[player], value, a.Card) {
+			return fmt.Errorf("uncapturable build")
+		}
+		// Valid build
 		return nil
 	}
 
-	// Builds must have a card in hand that can capture
-	for c := range g.hand[player] {
-		if c == a.Card {
-			continue
-		}
-		if c.Rank() == value {
-			// Valid build
-			return nil
+	// Captures must leave a card in hand that can capture any other controlled builds
+	for id, p := range g.piles {
+		if !ids[id] && len(p.Cards) > 1 && p.Controller == player &&
+			!haveSameRank(g.hand[player], p.Value, a.Card) {
+			return fmt.Errorf("no card left to capture controlled build")
 		}
 	}
-	return fmt.Errorf("no card to capture build")
+	// Valid capture
+	return nil
 }
 
 // isBuild reports whether an Action is a build.
@@ -345,6 +347,17 @@ func score(cards []card.Card) int {
 		n++
 	}
 	return n
+}
+
+// haveSameRank reports whether hand contains a card of the given rank besides
+// the excluded card.
+func haveSameRank(hand map[card.Card]bool, rank int, exclude card.Card) bool {
+	for c := range hand {
+		if c != exclude && c.Rank() == rank {
+			return true
+		}
+	}
+	return false
 }
 
 // copyPile returns a Pile deeply equal to p that does not share memory with p.

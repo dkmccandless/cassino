@@ -36,7 +36,7 @@ Examples:
 * With an 8 and a 10 on the table, a player with a 2 and a 10 in hand plays the 2 onto the 8 and then adds the 10 on top to "build 10s".
 * With an ace, a 2, and a 5 on the table, a player with a 4 and a 6 in hand plays the 4 onto the 2 and then combines the ace and 5 on top to "build 6s".
 
-A player may only create or modify a build if they hold a card in their hand that can capture it. Either player may capture any build, but a build is said to be *controlled* by the player who last modified it. A player who controls a build on the table may not trail.
+A player may only create or modify a build if they hold a card in their hand of the value required to capture it. Either player may capture any build, but a build is said to be *controlled* by the player who last modified it. A player who controls a build may not trail, and may not play in such a way that they are left without a card of equal value in hand. Therefore, a build must be captured in the same round in which it is created.
 
 ### Scoring
 

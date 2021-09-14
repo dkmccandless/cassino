@@ -254,6 +254,25 @@ var actionTests = map[string]struct {
 		true,
 		game{},
 	},
+	"uncaptured build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{32: true, 36: true},
+			},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{4, 24}, Value: 9, Controller: 1},
+				2: Pile{Cards: []card.Card{0}, Value: 1},
+				3: Pile{Cards: []card.Card{8}, Value: 3},
+				4: Pile{Cards: []card.Card{16}, Value: 5},
+			},
+			npiles: 4,
+		},
+		1,
+		Action{Card: 32, Sets: [][]int{{2, 3, 4}}},
+		true,
+		game{},
+	},
 
 	"trail": {
 		game{
@@ -475,6 +494,40 @@ var actionTests = map[string]struct {
 			},
 		},
 	},
+	"number capture build": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{32: true, 36: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{4, 24}, Value: 9, Controller: 1},
+				2: Pile{Cards: []card.Card{0}, Value: 1},
+				3: Pile{Cards: []card.Card{8}, Value: 3},
+				4: Pile{Cards: []card.Card{16}, Value: 5},
+			},
+			npiles:      4,
+			lastCapture: 0,
+		},
+		1,
+		Action{Card: 32, Sets: [][]int{{1}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{36: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{4, 24, 32}},
+			piles: map[int]Pile{
+				2: Pile{Cards: []card.Card{0}, Value: 1},
+				3: Pile{Cards: []card.Card{8}, Value: 3},
+				4: Pile{Cards: []card.Card{16}, Value: 5},
+			},
+			npiles:      4,
+			lastCapture: 1,
+		},
+	},
 	"number single build": {
 		game{
 			hand: []map[card.Card]bool{
@@ -660,6 +713,38 @@ var actionTests = map[string]struct {
 				4: Pile{Cards: []card.Card{4, 28, 32, 0}, Value: 10, Compound: true, Controller: 1},
 			},
 			npiles: 4,
+		},
+	},
+	"uncaptured build with hand card": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{32: true, 33: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{4, 24}, Value: 9, Controller: 1},
+				2: Pile{Cards: []card.Card{0}, Value: 1},
+				3: Pile{Cards: []card.Card{8}, Value: 3},
+				4: Pile{Cards: []card.Card{16}, Value: 5},
+			},
+			npiles:      4,
+			lastCapture: 0,
+		},
+		1,
+		Action{Card: 32, Sets: [][]int{{2, 3, 4}}},
+		false,
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{20: true},
+				map[card.Card]bool{33: true},
+			},
+			keep: [][]card.Card{[]card.Card{}, []card.Card{0, 8, 16, 32}},
+			piles: map[int]Pile{
+				1: Pile{Cards: []card.Card{4, 24}, Value: 9, Controller: 1},
+			},
+			npiles:      4,
+			lastCapture: 1,
 		},
 	},
 	"sweep": {
@@ -934,6 +1019,28 @@ func TestScore(t *testing.T) {
 	} {
 		if n := score(test.cards); n != test.n {
 			t.Errorf("score(%v): got %v, expected %v", test.cards, n, test.n)
+		}
+	}
+}
+
+func TestHaveSameRank(t *testing.T) {
+	for _, test := range []struct {
+		hand    map[card.Card]bool
+		rank    int
+		exclude card.Card
+		want    bool
+	}{
+		{map[card.Card]bool{}, 9, 32, false},
+		{map[card.Card]bool{32: true}, 9, 32, false},
+		{map[card.Card]bool{32: true, 33: true, 34: true}, 9, 32, true},
+		{map[card.Card]bool{32: true, 33: true, 37: true}, 9, 32, true},
+		{map[card.Card]bool{32: true, 36: true, 37: true}, 9, 32, false},
+	} {
+		got := haveSameRank(test.hand, test.rank, test.exclude)
+		if got != test.want {
+			t.Errorf("haveSameRank(%v, %v, %v): got %v, expected %v",
+				test.hand, test.rank, test.exclude, got, test.want,
+			)
 		}
 	}
 }

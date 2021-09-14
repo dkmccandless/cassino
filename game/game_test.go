@@ -55,7 +55,7 @@ var actionTests = map[string]struct {
 		true,
 		game{},
 	},
-	"duplicate ID": {
+	"duplicate ID in sets": {
 		game{
 			hand: []map[card.Card]bool{
 				map[card.Card]bool{0: true},
@@ -65,6 +65,36 @@ var actionTests = map[string]struct {
 		},
 		0,
 		Action{Card: 0, Sets: [][]int{{10}, {10}}},
+		true,
+		game{},
+	},
+	"duplicate ID in add": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true, 8: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{10: Pile{Cards: []card.Card{1}, Value: 1}},
+		},
+		0,
+		Action{Card: 0, Add: []int{10, 10}},
+		true,
+		game{},
+	},
+	"duplicate ID between add and sets": {
+		game{
+			hand: []map[card.Card]bool{
+				map[card.Card]bool{0: true, 24: true},
+				map[card.Card]bool{20: true, 21: true},
+			},
+			piles: map[int]Pile{
+				10: Pile{Cards: []card.Card{1}, Value: 1},
+				11: Pile{Cards: []card.Card{7}, Value: 2},
+				12: Pile{Cards: []card.Card{18}, Value: 5},
+			},
+		},
+		0,
+		Action{Card: 0, Add: []int{10, 12}, Sets: [][]int{{11, 12}}},
 		true,
 		game{},
 	},

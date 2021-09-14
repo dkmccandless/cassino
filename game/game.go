@@ -219,6 +219,15 @@ func (g *game) validateAction(player int, a Action) error {
 			ids[id] = true
 		}
 	}
+	for _, id := range a.Add {
+		if _, ok := g.piles[id]; !ok {
+			return fmt.Errorf("invalid pile %v", id)
+		}
+		if ids[id] {
+			return fmt.Errorf("duplicate pile %v", id)
+		}
+		ids[id] = true
+	}
 
 	// Face card sets must have exactly one card of matching rank
 	if a.Card.IsFace() {
